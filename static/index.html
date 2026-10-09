@@ -1,0 +1,189 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no">
+<meta name="theme-color" content="#0B0E14">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<title>agy/deck</title>
+<link rel="manifest" href="/static/manifest.json">
+<link rel="icon" href="/static/icon.svg" type="image/svg+xml">
+<link rel="apple-touch-icon" href="/static/icon.svg">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;700&family=IBM+Plex+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/static/vendor/xterm.css">
+<link rel="stylesheet" href="/static/vendor/codemirror.min.css">
+<link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+
+<!-- BOOT SEQUENCE -->
+<div id="boot">
+  <div id="boot-log"></div>
+  <div class="boot-cursor">█</div>
+</div>
+
+<!-- LOGIN -->
+<div id="login" hidden>
+  <div class="login-box">
+    <div class="login-logo">agy<span>/deck</span></div>
+    <div class="login-sub">terminal session gateway</div>
+    <label class="login-label" for="login-token">auth_token</label>
+    <input id="login-token" type="password" autocomplete="off" autocapitalize="off"
+           spellcheck="false" placeholder="paste token dari server log">
+    <button id="login-btn" class="btn-amber">connect_</button>
+    <div id="login-err" class="login-err" hidden></div>
+    <div class="login-hint">token dicetak di log saat server start<br>tersimpan lokal di browser ini</div>
+  </div>
+</div>
+
+<!-- APP -->
+<div id="app" hidden>
+  <header id="topbar">
+    <button id="menu-btn" class="icon-btn" title="sessions">≡</button>
+    <div class="brand">agy<span>/deck</span></div>
+    <div class="top-status">
+      <button id="key-badge" class="pill" title="Gemini API key (akunmu sendiri)">key:—</button>
+      <button id="model-badge" class="pill" title="ganti model">model:…</button>
+      <button id="yolo-badge" class="pill warn" title="mode persetujuan tools">yolo</button>
+    </div>
+  </header>
+
+  <aside id="drawer">
+    <div class="drawer-head">
+      <span>sessions.log</span>
+      <button id="drawer-close" class="icon-btn">✕</button>
+    </div>
+    <button id="new-chat-btn" class="btn-amber btn-block">$ new_session</button>
+    <div id="sessions-list"></div>
+    <div class="drawer-foot" id="drawer-foot"></div>
+  </aside>
+  <div id="drawer-backdrop"></div>
+
+  <main id="main">
+    <section id="pane-chat" class="pane active">
+      <div id="transcript"></div>
+      <div id="composer">
+        <div class="composer-row">
+          <span class="prompt-char">$</span>
+          <textarea id="prompt-input" rows="1" placeholder="perintah / pertanyaan…  ( / = palette )"
+                    autocomplete="off" autocapitalize="off" spellcheck="false"></textarea>
+          <button id="send-btn" class="send-btn" title="kirim / stop">➤</button>
+        </div>
+        <div id="composer-status" class="composer-status"></div>
+      </div>
+    </section>
+
+    <section id="pane-term" class="pane">
+      <div id="xterm"></div>
+    </section>
+
+    <section id="pane-files" class="pane">
+      <div class="files-toolbar">
+        <div id="crumbs" class="crumbs"></div>
+        <div class="files-actions">
+          <button id="file-new" class="mini-btn" title="file baru">+file</button>
+          <button id="folder-new" class="mini-btn" title="folder baru">+dir</button>
+          <button id="files-refresh" class="mini-btn" title="refresh">↻</button>
+        </div>
+      </div>
+      <div id="files-list"></div>
+    </section>
+  </main>
+
+  <nav id="tabbar">
+    <button class="tab active" data-pane="pane-chat"><span class="tab-glyph">$</span><span>_chat</span></button>
+    <button class="tab" data-pane="pane-term"><span class="tab-glyph">&gt;_</span><span>_term</span></button>
+    <button class="tab" data-pane="pane-files"><span class="tab-glyph">[]</span><span>_files</span></button>
+  </nav>
+
+  <!-- bottom sheets -->
+  <div id="sheet-backdrop"></div>
+
+  <div id="sheet-palette" class="sheet">
+    <div class="sheet-handle"></div>
+    <input id="palette-input" placeholder="/ filter perintah…" autocomplete="off" spellcheck="false">
+    <div id="palette-list"></div>
+  </div>
+
+  <div id="sheet-models" class="sheet">
+    <div class="sheet-handle"></div>
+    <div class="sheet-title">models_</div>
+    <div id="models-list"></div>
+  </div>
+
+  <div id="sheet-yolo" class="sheet">
+    <div class="sheet-handle"></div>
+    <div class="sheet-title">tool_approval_</div>
+    <div class="yolo-opt" data-yolo="1">
+      <div class="yolo-name">yolo <span class="pill warn">aktif</span></div>
+      <div class="yolo-desc">semua tool call otomatis disetujui. cepat, tapi AI bisa eksekusi apa saja tanpa tanya.</div>
+    </div>
+    <div class="yolo-opt" data-yolo="0">
+      <div class="yolo-name">review <span class="pill">eksperimental</span></div>
+      <div class="yolo-desc">coba minta persetujuan per tool call. butuh dukungan CLI; jika tidak didukung, tool akan ditolak otomatis.</div>
+    </div>
+  </div>
+
+  <div id="sheet-key" class="sheet">
+    <div class="sheet-handle"></div>
+    <div class="sheet-title">auth_</div>
+    <div class="key-body">
+      <button id="google-login-btn" class="btn-amber btn-block">login_dengan_google_</button>
+      <div id="google-flow" hidden>
+        <div class="yolo-desc">buka link ini di browser HP-mu → login pakai akun Googlemu (yang AI Pro), lalu kembali ke sini:</div>
+        <a id="google-url" class="g-url" href="#" target="_blank" rel="noopener">menyiapkan link…</a>
+        <div id="google-wait" class="key-status">menyiapkan…</div>
+        <div class="g-row">
+          <button id="google-check" class="mini-btn">cek — aku sudah login</button>
+          <button id="google-code-toggle" class="mini-btn">tempel kode</button>
+          <button id="google-cancel" class="mini-btn danger">batal</button>
+        </div>
+        <div id="google-code-row" class="g-row" hidden>
+          <input id="google-code" autocomplete="off" autocapitalize="off"
+                 spellcheck="false" placeholder="kode otorisasi dari Google">
+          <button id="google-code-send" class="btn-amber">kirim_</button>
+        </div>
+      </div>
+      <div class="auth-divider">// atau //</div>
+      <div class="yolo-desc">Key dari akun Google-mu sendiri — buat di <b>aistudio.google.com</b> → Get API key (gratis). Disimpan di server, tidak pernah ditampilkan lagi.</div>
+      <input id="key-input" type="password" autocomplete="off" autocapitalize="off"
+             spellcheck="false" placeholder="AIza…">
+      <button id="key-save" class="btn-amber btn-block">save_key_</button>
+      <div id="key-status" class="key-status"></div>
+    </div>
+  </div>
+
+  <!-- file editor -->
+  <div id="editor-modal" hidden>
+    <div class="editor-head">
+      <span id="editor-title">file</span>
+      <span id="editor-dirty" class="pill warn" hidden>modified</span>
+      <div class="editor-actions">
+        <button id="editor-close" class="mini-btn">tutup</button>
+        <button id="editor-save" class="btn-amber">save_</button>
+      </div>
+    </div>
+    <div id="editor-img-wrap" hidden><img id="editor-img" alt="preview"></div>
+    <textarea id="editor-fallback"></textarea>
+  </div>
+
+  <div id="toast"></div>
+</div>
+
+<script src="/static/vendor/marked.min.js"></script>
+<script src="/static/vendor/dompurify.min.js"></script>
+<script src="/static/vendor/xterm.js"></script>
+<script src="/static/vendor/codemirror.min.js"></script>
+<script src="/static/vendor/cm-python.js"></script>
+<script src="/static/vendor/cm-javascript.js"></script>
+<script src="/static/vendor/cm-xml.js"></script>
+<script src="/static/vendor/cm-css.js"></script>
+<script src="/static/vendor/cm-markdown.js"></script>
+<script src="/static/vendor/cm-shell.js"></script>
+<script src="/static/app.js"></script>
+</body>
+</html>
